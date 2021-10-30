@@ -26,7 +26,7 @@ m n   j f i   c b
     10      3
 */
 
-float decayFactor = 0.95;
+float decayFactor = 1.0;
 
 typedef struct {
 	uint16_t hue;
@@ -97,9 +97,9 @@ void initLattice() {
 	a.next[0] = &b; a.next[1] = NULL; a.next[2] = NULL; a.next[3] = NULL; a.next[4] = NULL;
 	b.next[0] = &c; b.next[1] = &H;   b.next[2] = NULL; b.next[3] = NULL; b.next[4] = NULL;
 	c.next[0] = &d; c.next[1] = &i;   c.next[2] = NULL; c.next[3] = NULL; c.next[4] = NULL;
-	d.next[0] = &a; d.next[1] = &e;   d.next[2] = NULL; d.next[3] = NULL; d.next[4] = NULL;
+	d.next[0] = &e; d.next[1] = &a;   d.next[2] = NULL; d.next[3] = NULL; d.next[4] = NULL;
 	e.next[0] = &f; e.next[1] = &O;   e.next[2] = NULL; e.next[3] = NULL; e.next[4] = NULL;
-	f.next[0] = &g; f.next[1] = &I;   f.next[2] = &j;   f.next[3] = &p;   f.next[4] = NULL;
+	f.next[0] = &j; f.next[1] = &I;   f.next[2] = &g;   f.next[3] = &p;   f.next[4] = NULL;
 	g.next[0] = &h; g.next[1] = NULL; g.next[2] = NULL; g.next[3] = NULL; g.next[4] = NULL;
 	h.next[0] = &B; h.next[1] = &c;   h.next[2] = NULL; h.next[3] = NULL; h.next[4] = NULL;
 	i.next[0] = &F; i.next[1] = &g;   i.next[2] = &j;   i.next[3] = &p;   i.next[4] = NULL;
@@ -115,7 +115,7 @@ void initLattice() {
 	A.next[0] = &D; A.next[1] = &e;   A.next[2] = NULL; A.next[3] = NULL; A.next[4] = NULL;
 	B.next[0] = &A; B.next[1] = NULL; B.next[2] = NULL; B.next[3] = NULL; B.next[4] = NULL;
 	C.next[0] = &B; C.next[1] = &H;   C.next[2] = NULL; C.next[3] = NULL; C.next[4] = NULL;
-	D.next[0] = &C; D.next[1] = &i;   D.next[2] = NULL; D.next[3] = NULL; D.next[4] = NULL;
+	D.next[0] = &i; D.next[1] = &C;   D.next[2] = NULL; D.next[3] = NULL; D.next[4] = NULL;
 	E.next[0] = &a; E.next[1] = &D;   E.next[2] = NULL; E.next[3] = NULL; E.next[4] = NULL;
 	F.next[0] = &E; F.next[1] = &O;   F.next[2] = NULL; F.next[3] = NULL; F.next[4] = NULL;
 	G.next[0] = &I; G.next[1] = &F;   G.next[2] = &j;   G.next[3] = &p;   G.next[4] = NULL;
@@ -136,9 +136,9 @@ head s1;
 void startSnake() {
 	s1.brightness = 50;
 	s1.sat = 255;
-	s1.hue = 10000;
-	s1.e = &A;
+	s1.hue = (uint16_t)random(0, 65535);
 	s1.positionOnEdge = 0;
+	s1.e = &m;
 }
 
 void advanceSnake() {
@@ -153,16 +153,25 @@ void advanceSnake() {
 	if (s1.positionOnEdge >= 14) {
 		// Make a new snake somewhere off the node
 		s1.positionOnEdge = 0;
-		s1.e = s1.e->next[0];
+		int next = random(0, 5);
+		if (s1.e->next[next] != NULL) {
+			s1.e = s1.e->next[next];
+		} else {
+			s1.e = s1.e->next[0];
+		}
+
+		if (random(0, 20) == 0) {
+			s1.hue = (uint16_t)random(0, 65535);
+		}
+
 	}
-	sprintf(debug, "Pos %d", s1.positionOnEdge);
-	Serial.println(debug);
 }
 
 void setup() {
 	Serial.begin(115200);
 	delay(3000);
 	Serial.println("Start...");
+	randomSeed(analogRead(0));
 	initLattice();
 	strip.begin();
 	strip.show();
@@ -208,6 +217,6 @@ void loop() {
 	renderPixels();
 
 	// Render LED strip
-	delay(100);
+	delay(15);
 }
 
