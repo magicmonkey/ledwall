@@ -7,11 +7,11 @@
 #define EDGE_SIZE 14 * 7 * 2
 #define MODE_SNAKE 0
 #define MODE_BURST 1
+#define START_BRIGHTNESS 100
 
-int brightness = 100;
 char debug[100];
 int lastLaunch = 0;
-float decayFactor = 0.8;
+float decayFactor = 0.9;
 unsigned long loopTime;
 
 Adafruit_DotStar strip(NUMPIXELS, DOTSTAR_BGR);
@@ -138,7 +138,7 @@ void initLattice() {
 #define NUMHEADS 100
 head heads[NUMHEADS];
 
-void startSnake(edge *newEdge, uint16_t hue, int speed, int mode) {
+void startSnake(edge *newEdge, uint16_t hue, int speed, int mode, uint8_t brightness) {
 	Serial.println("Starting new snake");
 	int spareSnake = 0;
 	for (int i=0; i<NUMHEADS; i++) {
@@ -159,19 +159,10 @@ void startSnake(edge *newEdge, uint16_t hue, int speed, int mode) {
 	heads[spareSnake].state = 1;
 	heads[spareSnake].speed = speed;
 	heads[spareSnake].mode = mode;
-	if (mode == MODE_SNAKE) {
-		heads[spareSnake].decayFactor = 1.0;
-	} else {
-		heads[spareSnake].decayFactor = 0.99;
-	}
+	heads[spareSnake].decayFactor = 0.98; // Only used for burst mode, not snake
 }
 
 void advanceSnake(head *thisHead) {
-
-	thisHead->brightness *= thisHead->decayFactor;
-	if (thisHead->brightness < 2) {
-		thisHead->state = 0;
-	}
 
 	thisHead->positionOnEdge += thisHead->speed;
 
@@ -185,15 +176,15 @@ void advanceSnake(head *thisHead) {
 			thisHead->e = thisHead->e->next[0];
 		}
 
-		if (random(0, 20) == 0) {
-			thisHead->hue = (uint16_t)random(0, 65535);
-		}
+		thisHead->hue = thisHead->hue + (random(0, 4000) - 2000);
 
 	}
 }
 
 void advanceBurst(head *thisHead) {
-	thisHead->brightness *= thisHead->decayFactor;
+	if (random(0, 10) == 0) {
+		thisHead->brightness *= thisHead->decayFactor;
+	}
 	if (thisHead->brightness < 2) {
 		thisHead->state = 0;
 	}
@@ -210,7 +201,7 @@ void advanceBurst(head *thisHead) {
 		if (thisHead->speed > 0) {
 			for (int j=0; j<=4; j++) {
 				if (thisHead->e->next[j] != NULL) {
-					startSnake(thisHead->e->next[j], thisHead->hue, thisHead->speed, thisHead->mode);
+					startSnake(thisHead->e->next[j], thisHead->hue, thisHead->speed, thisHead->mode, thisHead->brightness);
 				}
 			}
 		}
@@ -237,7 +228,7 @@ void advance() {
 	// Do we need to launch a new burst?
 	if ((millis() - lastLaunch) > 3000) {
 		lastLaunch = millis();
-		startSnake(&f, (uint16_t)random(0, 65535), 5, MODE_BURST);
+		startSnake(&f, (uint16_t)random(0, 65535), 5, MODE_BURST, START_BRIGHTNESS);
 	}
 }
 
@@ -270,6 +261,7 @@ void renderPixels() {
 	strip.show();
 }
 
+/*
 void checkForEmptyArray() {
 	int snakeCounter = 0;
 	for (int i=0; i<NUMHEADS; i++) {
@@ -279,9 +271,10 @@ void checkForEmptyArray() {
 		snakeCounter++;
 	}
 	if (snakeCounter == 0) {
-		startSnake(&f, (uint16_t)random(0, 65535), 5, MODE_BURST);
+		startSnake(&f, (uint16_t)random(0, 65535), 3, MODE_BURST);
 	}
 }
+*/
 
 void setup() {
 	Serial.begin(115200);
@@ -303,18 +296,18 @@ void setup() {
 	}
 	loopTime = millis();
 
-	startSnake(&a, 10000, 5, MODE_SNAKE);
+	startSnake(&a, 10000, 2, MODE_SNAKE, START_BRIGHTNESS);
 }
 
 void loop() {
 
 	decayPixels();
 	advance();
-	checkForEmptyArray();
+	//checkForEmptyArray();
 	writeHeadPixels();
 	renderPixels();
 
-	delay(25 - (millis() - loopTime));
+	delay(15 - (millis() - loopTime));
 	loopTime = millis();
 }
 
