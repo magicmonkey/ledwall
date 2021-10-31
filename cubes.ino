@@ -2,6 +2,8 @@
 
 #include <MM_DotStar.h>
 #include <SPI.h>
+#include <WiFi101.h>
+#include "secrets.h"
 
 #include "wiring_private.h" // pinPeripheral function
 
@@ -11,10 +13,15 @@
 #define MODE_BURST 1
 #define START_BRIGHTNESS 100
 
+char wifi_ssid[] = SECRET_SSID;
+char wifi_pass[] = SECRET_PASS;
+
 char debug[100];
 int lastLaunch = 0;
 float decayFactor = 0.9;
-unsigned long loopTime;
+long loopTime, lastWifiPing, timeToSleep;
+
+int pingResult;
 
 SPIClass SPI2(&sercom1, 12, 13, 11, SPI_PAD_0_SCK_1, SERCOM_RX_PAD_3);
 
@@ -144,7 +151,6 @@ void initLattice() {
 head heads[NUMHEADS];
 
 void startSnake(edge *newEdge, uint16_t hue, int speed, int mode, uint8_t brightness) {
-	Serial.println("Starting new snake");
 	int spareSnake = 0;
 	for (int i=0; i<NUMHEADS; i++) {
 		if (heads[i].state == 0) {
@@ -152,9 +158,6 @@ void startSnake(edge *newEdge, uint16_t hue, int speed, int mode, uint8_t bright
 			break;
 		}
 	}
-
-	sprintf(debug, "Using snake slot [%d]", spareSnake);
-	Serial.println(debug);
 
 	heads[spareSnake].brightness = brightness;
 	heads[spareSnake].sat = 255;
@@ -282,10 +285,35 @@ void checkForEmptyArray() {
 }
 */
 
+void setupWifi() {
+	int status = WL_IDLE_STATUS;     // the WiFi radio's status
+
+	WiFi.setPins(8,7,4,2);
+
+	// check for the presence of the shield:
+	if (WiFi.status() == WL_NO_SHIELD) {
+		Serial.println("WiFi shield not present");
+		// don't continue:
+		while (true);
+	}
+
+	// attempt to connect to WiFi network:
+	while ( status != WL_CONNECTED) {
+		status = WiFi.begin(wifi_ssid, wifi_pass);
+		// wait 5 seconds for connection:
+		delay(5000);
+	}
+
+	// you're connected now, so print out the data:
+	Serial.println("You're connected to the network");
+}
+
 void setup() {
 	Serial.begin(115200);
 	delay(3000);
 	Serial.println("Start...");
+
+	setupWifi();
 
 	randomSeed(analogRead(0));
 	initLattice();
@@ -324,9 +352,27 @@ void loop() {
 	renderPixels();
 
 	//Serial.println("Sleep");
-	delay(15 - (millis() - loopTime));
+	timeToSleep = 15 - (millis() - loopTime);
+	if (timeToSleep > 0) {
+		delay(timeToSleep);
+	}
 	loopTime = millis();
 	//Serial.println("Done");
 	//Serial.println("");
+
+/*
+	if (millis() - lastWifiPing > 5000) {
+		lastWifiPing = millis();
+		pingResult = WiFi.ping("www.google.com");
+		if (pingResult >= 0) {
+			Serial.print("SUCCESS! RTT = ");
+			Serial.print(pingResult);
+			Serial.println(" ms");
+		} else {
+			Serial.print("FAILED! Error code: ");
+			Serial.println(pingResult);
+		}
+	}
+*/
 }
 
