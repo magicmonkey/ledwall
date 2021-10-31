@@ -7,7 +7,7 @@
 #define EDGE_SIZE 14 * 7 * 2
 #define MODE_SNAKE 0
 #define MODE_BURST 1
-#define START_BRIGHTNESS 100
+#define START_BRIGHTNESS 150
 
 char debug[100];
 int lastLaunch = 0;
@@ -15,6 +15,7 @@ float decayFactor = 0.9;
 unsigned long loopTime;
 
 Adafruit_DotStar strip(NUMPIXELS, DOTSTAR_BGR);
+uint32_t bg = strip.Color(0, 0, 0);
 
 /*
     7       0
@@ -253,6 +254,7 @@ void writeHeadPixels() {
 
 void renderPixels() {
 	strip.clear();
+	strip.fill(bg, 0, NUMPIXELS);
 	for (int i=0; i<NUMPIXELS; i++) {
 		if (pixelStrip[i].val > 0) {
 			strip.setPixelColor(i, strip.ColorHSV(pixelStrip[i].hue, pixelStrip[i].sat, pixelStrip[i].val));
