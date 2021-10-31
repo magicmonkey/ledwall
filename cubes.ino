@@ -9,7 +9,7 @@
 #define EDGE_SIZE 14 * 7
 #define MODE_SNAKE 0
 #define MODE_BURST 1
-#define START_BRIGHTNESS 150
+#define START_BRIGHTNESS 100
 
 char debug[100];
 int lastLaunch = 0;
