@@ -5,7 +5,7 @@
 
 #define NUMPIXELS 238
 
-int brightness = 150;
+int brightness = 50;
 char debug[100];
 
 Adafruit_DotStar strip(NUMPIXELS, DOTSTAR_BGR);
@@ -26,7 +26,7 @@ m n   j f i   c b
     10      3
 */
 
-float decayFactor = 0.8;
+float decayFactor = 1.0;
 
 typedef struct {
 	uint16_t hue;
@@ -42,19 +42,16 @@ typedef struct edge {
 } edge;
 
 typedef struct {
-} lattice;
-
-typedef struct {
 	uint16_t hue;
 	uint8_t sat;
 	uint8_t brightness;
 	edge *e;
 	int positionOnEdge;
+	int state; // 0 = Stopped, 1 = Running
 } head;
 
 edge a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q;
 edge A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q;
-lattice ltc;
 
 void initLattice() {
 
@@ -131,39 +128,85 @@ void initLattice() {
 	Q.next[0] = &P; Q.next[1] = NULL; Q.next[2] = NULL; Q.next[3] = NULL; Q.next[4] = NULL;
 }
 
-head s1;
+#define NUMHEADS 100
+head heads[NUMHEADS];
 
-void startSnake() {
-	s1.brightness = brightness;
-	s1.sat = 255;
-	s1.hue = (uint16_t)random(0, 65535);
-	s1.positionOnEdge = 0;
-	s1.e = &m;
+void startSnake(edge *newEdge) {
+	Serial.println("Starting new snake");
+	int spareSnake = 0;
+	for (int i=0; i<NUMHEADS; i++) {
+		if (heads[i].state == 0) {
+			spareSnake = i;
+			break;
+		}
+	}
+
+	sprintf(debug, "Using snake slot [%d]", spareSnake);
+	Serial.println(debug);
+
+	heads[spareSnake].brightness = brightness;
+	heads[spareSnake].sat = 255;
+	heads[spareSnake].hue = (uint16_t)random(0, 65535);
+	heads[spareSnake].positionOnEdge = 0;
+	heads[spareSnake].e = newEdge;
+	heads[spareSnake].state = 1;
 }
 
 void advanceSnake() {
-	sprintf(debug, "Snake is at position %d and brightness %d", s1.positionOnEdge, s1.brightness);
-	s1.brightness *= decayFactor;
-	if (s1.brightness < 2) {
-		// delete the snake
-		return;
-	}
+	Serial.println("Advancing...");
 
-	s1.positionOnEdge++;
-	if (s1.positionOnEdge >= 14) {
-		// Make a new snake somewhere off the node
-		s1.positionOnEdge = 0;
-		int next = random(0, 5);
-		if (s1.e->next[next] != NULL) {
-			s1.e = s1.e->next[next];
-		} else {
-			s1.e = s1.e->next[0];
+	for (int i=0; i<NUMHEADS; i++) {
+
+		heads[i].brightness *= decayFactor;
+		if (heads[i].brightness < 2) {
+			heads[i].state = 0;
+		}
+		if (heads[i].state == 0) {
+			continue;
 		}
 
-		if (random(0, 20) == 0) {
-			s1.hue = (uint16_t)random(0, 65535);
-		}
+		sprintf(debug, "Advancing slot [%d]", i);
+		Serial.println(debug);
 
+		heads[i].positionOnEdge++;
+		if (heads[i].positionOnEdge >= 14) {
+
+			int progressMode = 1; // 0 == snake, 1 == burst
+			switch (progressMode) {
+
+				case 0: // "Snake" mode
+					{
+						heads[i].positionOnEdge = 0;
+						int next = random(0, 5);
+						if (heads[i].e->next[next] != NULL) {
+							heads[i].e = heads[i].e->next[next];
+						} else {
+							heads[i].e = heads[i].e->next[0];
+						}
+
+						if (random(0, 20) == 0) {
+							heads[i].hue = (uint16_t)random(0, 65535);
+						}
+					}
+					break;
+
+				case 1: // "Burst" mode
+					{
+						if (random(0, 2) == 0) {
+							for (int j=0; j<=4; j++) {
+								if (heads[i].e->next[j] != NULL) {
+									startSnake(heads[i].e->next[j]);
+								}
+							}
+						}
+						heads[i].state = 0;
+					}
+					break;
+
+			}
+
+		}
+		Serial.println("Finished advancing");
 	}
 }
 
@@ -176,13 +219,15 @@ void setup() {
 	strip.begin();
 	strip.show();
 
+	for (int i=0; i<NUMHEADS; i++) {
+		heads[i].state = 0;
+	}
+
 	for (int i=0; i<NUMPIXELS; i++) {
 		pixelStrip[i].hue = 0;
 		pixelStrip[i].sat = 0;
 		pixelStrip[i].val = 0;
 	}
-
-	startSnake();
 }
 
 void decayPixels() {
@@ -192,31 +237,47 @@ void decayPixels() {
 }
 
 void writeHeadPixels() {
-	for (int i=0; i<1; i++) {
-		s1.e->pixels[ s1.e->direction * s1.positionOnEdge ].hue = s1.hue;
-		s1.e->pixels[ s1.e->direction * s1.positionOnEdge ].sat = s1.sat;
-		s1.e->pixels[ s1.e->direction * s1.positionOnEdge ].val = s1.brightness;
+	for (int i=0; i<NUMHEADS; i++) {
+		if (heads[i].state == 0) {
+			continue;
+		}
+		heads[i].e->pixels[ heads[i].e->direction * heads[i].positionOnEdge ].hue = heads[i].hue;
+		heads[i].e->pixels[ heads[i].e->direction * heads[i].positionOnEdge ].sat = heads[i].sat;
+		heads[i].e->pixels[ heads[i].e->direction * heads[i].positionOnEdge ].val = heads[i].brightness;
 	}
 }
 
 void renderPixels() {
 	strip.clear();
 	for (int i=0; i<NUMPIXELS; i++) {
-		strip.setPixelColor(i, strip.ColorHSV(pixelStrip[i].hue, pixelStrip[i].sat, pixelStrip[i].val));
+		if (pixelStrip[i].val > 0) {
+			strip.setPixelColor(i, strip.ColorHSV(pixelStrip[i].hue, pixelStrip[i].sat, pixelStrip[i].val));
+		}
 	}
 	strip.show();
 }
 
-int stepCounter = 0;
+void checkForEmptyArray() {
+	int snakeCounter = 0;
+	for (int i=0; i<NUMHEADS; i++) {
+		if (heads[i].state == 0) {
+			continue;
+		}
+		snakeCounter++;
+	}
+	if (snakeCounter == 0) {
+		startSnake(&f);
+	}
+}
 
 void loop() {
 
 	decayPixels();
 	advanceSnake();
+	checkForEmptyArray();
 	writeHeadPixels();
 	renderPixels();
 
-	// Render LED strip
 	delay(75);
 }
 
