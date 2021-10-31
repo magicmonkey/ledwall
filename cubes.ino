@@ -4,17 +4,17 @@
 #include <SPI.h>
 
 #define NUMPIXELS 238
-#define EDGE_SIZE 14 * 7 * 2
+#define EDGE_SIZE 14 * 7
 #define MODE_SNAKE 0
 #define MODE_BURST 1
 #define START_BRIGHTNESS 150
 
 char debug[100];
 int lastLaunch = 0;
-float decayFactor = 0.9;
+float decayFactor = 0.8;
 unsigned long loopTime;
 
-Adafruit_DotStar strip(NUMPIXELS, DOTSTAR_BGR);
+Adafruit_DotStar strip(NUMPIXELS, 10, 11, DOTSTAR_BGR);
 uint32_t bg = strip.Color(0, 0, 0);
 
 /*
@@ -160,7 +160,7 @@ void startSnake(edge *newEdge, uint16_t hue, int speed, int mode, uint8_t bright
 	heads[spareSnake].state = 1;
 	heads[spareSnake].speed = speed;
 	heads[spareSnake].mode = mode;
-	heads[spareSnake].decayFactor = 0.98; // Only used for burst mode, not snake
+	heads[spareSnake].decayFactor = 0.95; // Only used for burst mode, not snake
 }
 
 void advanceSnake(head *thisHead) {
@@ -229,7 +229,7 @@ void advance() {
 	// Do we need to launch a new burst?
 	if ((millis() - lastLaunch) > 3000) {
 		lastLaunch = millis();
-		startSnake(&f, (uint16_t)random(0, 65535), 5, MODE_BURST, START_BRIGHTNESS);
+		startSnake(&f, (uint16_t)random(0, 65535), 3, MODE_BURST, START_BRIGHTNESS);
 	}
 }
 
@@ -298,18 +298,27 @@ void setup() {
 	}
 	loopTime = millis();
 
-	startSnake(&a, 10000, 2, MODE_SNAKE, START_BRIGHTNESS);
+	startSnake(&a, 10000, 3, MODE_SNAKE, START_BRIGHTNESS);
 }
 
 void loop() {
 
+	//Serial.println("Decay");
 	decayPixels();
+	//Serial.println("Advance");
 	advance();
 	//checkForEmptyArray();
+	//Serial.println("Write head");
 	writeHeadPixels();
+	//Serial.println("Render");
 	renderPixels();
 
-	delay(15 - (millis() - loopTime));
+	//Serial.println("Sleep");
+	/*
+	delay(50 - (millis() - loopTime));
 	loopTime = millis();
+	*/
+	//Serial.println("Done");
+	//Serial.println("");
 }
 
