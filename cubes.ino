@@ -1,7 +1,9 @@
 // arduino-cli compile -b adafruit:samd:adafruit_feather_m0 -u -p /dev/ttyACM0
 
-#include <Adafruit_DotStar.h>
+#include <MM_DotStar.h>
 #include <SPI.h>
+
+#include "wiring_private.h" // pinPeripheral function
 
 #define NUMPIXELS 238
 #define EDGE_SIZE 14 * 7
@@ -11,10 +13,12 @@
 
 char debug[100];
 int lastLaunch = 0;
-float decayFactor = 0.8;
+float decayFactor = 0.9;
 unsigned long loopTime;
 
-Adafruit_DotStar strip(NUMPIXELS, 10, 11, DOTSTAR_BGR);
+SPIClass SPI2(&sercom1, 12, 13, 11, SPI_PAD_0_SCK_1, SERCOM_RX_PAD_3);
+
+MM_DotStar strip(NUMPIXELS, &SPI2, DOTSTAR_BGR);
 uint32_t bg = strip.Color(0, 0, 0);
 
 /*
@@ -229,7 +233,7 @@ void advance() {
 	// Do we need to launch a new burst?
 	if ((millis() - lastLaunch) > 3000) {
 		lastLaunch = millis();
-		startSnake(&f, (uint16_t)random(0, 65535), 3, MODE_BURST, START_BRIGHTNESS);
+		startSnake(&f, (uint16_t)random(0, 65535), random(2, 5), MODE_BURST, START_BRIGHTNESS);
 	}
 }
 
@@ -282,10 +286,16 @@ void setup() {
 	Serial.begin(115200);
 	delay(3000);
 	Serial.println("Start...");
+
 	randomSeed(analogRead(0));
 	initLattice();
 	strip.begin();
 	strip.show();
+
+	// sercom'd SPI port setup
+	pinPeripheral(11, PIO_SERCOM);
+	pinPeripheral(12, PIO_SERCOM);
+	pinPeripheral(13, PIO_SERCOM);
 
 	for (int i=0; i<NUMHEADS; i++) {
 		heads[i].state = 0;
@@ -298,7 +308,7 @@ void setup() {
 	}
 	loopTime = millis();
 
-	startSnake(&a, 10000, 3, MODE_SNAKE, START_BRIGHTNESS);
+	startSnake(&a, 10000, 2, MODE_SNAKE, START_BRIGHTNESS);
 }
 
 void loop() {
@@ -314,10 +324,8 @@ void loop() {
 	renderPixels();
 
 	//Serial.println("Sleep");
-	/*
-	delay(50 - (millis() - loopTime));
+	delay(15 - (millis() - loopTime));
 	loopTime = millis();
-	*/
 	//Serial.println("Done");
 	//Serial.println("");
 }
