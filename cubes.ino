@@ -4,9 +4,15 @@
 #include <SPI.h>
 
 #define NUMPIXELS 238
+#define EDGE_SIZE 14 * 7 * 2
+#define MODE_SNAKE 0
+#define MODE_BURST 1
 
-int brightness = 50;
+int brightness = 100;
 char debug[100];
+int lastLaunch = 0;
+float decayFactor = 0.8;
+unsigned long loopTime;
 
 Adafruit_DotStar strip(NUMPIXELS, DOTSTAR_BGR);
 
@@ -25,8 +31,6 @@ m n   j f i   c b
    .|.     .|.
     10      3
 */
-
-float decayFactor = 1.0;
 
 typedef struct {
 	uint16_t hue;
@@ -48,6 +52,9 @@ typedef struct {
 	edge *e;
 	int positionOnEdge;
 	int state; // 0 = Stopped, 1 = Running
+	int speed; // 0-7
+	int mode;  // 0 = Snake, 1 = Burst
+	float decayFactor;
 } head;
 
 edge a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q;
@@ -131,7 +138,7 @@ void initLattice() {
 #define NUMHEADS 100
 head heads[NUMHEADS];
 
-void startSnake(edge *newEdge) {
+void startSnake(edge *newEdge, uint16_t hue, int speed, int mode) {
 	Serial.println("Starting new snake");
 	int spareSnake = 0;
 	for (int i=0; i<NUMHEADS; i++) {
@@ -146,67 +153,86 @@ void startSnake(edge *newEdge) {
 
 	heads[spareSnake].brightness = brightness;
 	heads[spareSnake].sat = 255;
-	heads[spareSnake].hue = (uint16_t)random(0, 65535);
+	heads[spareSnake].hue = hue;
 	heads[spareSnake].positionOnEdge = 0;
 	heads[spareSnake].e = newEdge;
 	heads[spareSnake].state = 1;
+	heads[spareSnake].speed = speed;
+	heads[spareSnake].mode = mode;
+	heads[spareSnake].decayFactor = 0.98;
 }
 
-void advanceSnake() {
-	Serial.println("Advancing...");
+void advanceSnake(head *thisHead) {
 
-	for (int i=0; i<NUMHEADS; i++) {
+	thisHead->brightness *= thisHead->decayFactor;
+	if (thisHead->brightness < 2) {
+		thisHead->state = 0;
+	}
 
-		heads[i].brightness *= decayFactor;
-		if (heads[i].brightness < 2) {
-			heads[i].state = 0;
+	thisHead->positionOnEdge += thisHead->speed;
+
+	if (thisHead->positionOnEdge >= EDGE_SIZE) {
+
+		thisHead->positionOnEdge = 0;
+		int next = random(0, 5);
+		if (thisHead->e->next[next] != NULL) {
+			thisHead->e = thisHead->e->next[next];
+		} else {
+			thisHead->e = thisHead->e->next[0];
 		}
+
+		if (random(0, 20) == 0) {
+			thisHead->hue = (uint16_t)random(0, 65535);
+		}
+
+	}
+}
+
+void advanceBurst(head *thisHead) {
+	thisHead->brightness *= thisHead->decayFactor;
+	if (thisHead->brightness < 2) {
+		thisHead->state = 0;
+	}
+	if (random(0, 30) == 0) {
+		thisHead->speed--;
+		if (thisHead->speed <= 0) {
+			thisHead->state = 0;
+		}
+	}
+
+	thisHead->positionOnEdge += thisHead->speed;
+
+	if (thisHead->positionOnEdge >= EDGE_SIZE) {
+		if (thisHead->speed > 0) {
+			for (int j=0; j<=4; j++) {
+				if (thisHead->e->next[j] != NULL) {
+					startSnake(thisHead->e->next[j], thisHead->hue, thisHead->speed, thisHead->mode);
+				}
+			}
+		}
+		thisHead->state = 0;
+	}
+
+	// Do we need to launch a new burst?
+	if ((millis() - lastLaunch) > 3000) {
+		lastLaunch = millis();
+		startSnake(&f, (uint16_t)random(0, 65535), 5, 1);
+	}
+}
+
+void advance() {
+	for (int i=0; i<NUMHEADS; i++) {
 		if (heads[i].state == 0) {
 			continue;
 		}
-
-		sprintf(debug, "Advancing slot [%d]", i);
-		Serial.println(debug);
-
-		heads[i].positionOnEdge++;
-		if (heads[i].positionOnEdge >= 14) {
-
-			int progressMode = 1; // 0 == snake, 1 == burst
-			switch (progressMode) {
-
-				case 0: // "Snake" mode
-					{
-						heads[i].positionOnEdge = 0;
-						int next = random(0, 5);
-						if (heads[i].e->next[next] != NULL) {
-							heads[i].e = heads[i].e->next[next];
-						} else {
-							heads[i].e = heads[i].e->next[0];
-						}
-
-						if (random(0, 20) == 0) {
-							heads[i].hue = (uint16_t)random(0, 65535);
-						}
-					}
-					break;
-
-				case 1: // "Burst" mode
-					{
-						if (random(0, 2) == 0) {
-							for (int j=0; j<=4; j++) {
-								if (heads[i].e->next[j] != NULL) {
-									startSnake(heads[i].e->next[j]);
-								}
-							}
-						}
-						heads[i].state = 0;
-					}
-					break;
-
-			}
-
+		switch (heads[i].mode) {
+			case MODE_SNAKE:
+				advanceSnake(&heads[i]);
+				break;
+			case MODE_BURST:
+				advanceBurst(&heads[i]);
+				break;
 		}
-		Serial.println("Finished advancing");
 	}
 }
 
@@ -228,22 +254,25 @@ void setup() {
 		pixelStrip[i].sat = 0;
 		pixelStrip[i].val = 0;
 	}
+	loopTime = millis();
 }
 
 void decayPixels() {
 	for (int i=0; i<NUMPIXELS; i++) {
-		pixelStrip[i].val *= (decayFactor / 2);
+		pixelStrip[i].val *= decayFactor;
 	}
 }
 
 void writeHeadPixels() {
+	int nrmPos = 0;
 	for (int i=0; i<NUMHEADS; i++) {
 		if (heads[i].state == 0) {
 			continue;
 		}
-		heads[i].e->pixels[ heads[i].e->direction * heads[i].positionOnEdge ].hue = heads[i].hue;
-		heads[i].e->pixels[ heads[i].e->direction * heads[i].positionOnEdge ].sat = heads[i].sat;
-		heads[i].e->pixels[ heads[i].e->direction * heads[i].positionOnEdge ].val = heads[i].brightness;
+		nrmPos = map(heads[i].positionOnEdge, 0, EDGE_SIZE, 0, 14);
+		heads[i].e->pixels[ heads[i].e->direction * nrmPos ].hue = heads[i].hue;
+		heads[i].e->pixels[ heads[i].e->direction * nrmPos ].sat = heads[i].sat;
+		heads[i].e->pixels[ heads[i].e->direction * nrmPos ].val = heads[i].brightness;
 	}
 }
 
@@ -266,18 +295,20 @@ void checkForEmptyArray() {
 		snakeCounter++;
 	}
 	if (snakeCounter == 0) {
-		startSnake(&f);
+		startSnake(&f, (uint16_t)random(0, 65535), 5, 1);
 	}
 }
+
 
 void loop() {
 
 	decayPixels();
-	advanceSnake();
+	advance();
 	checkForEmptyArray();
 	writeHeadPixels();
 	renderPixels();
 
-	delay(75);
+	delay(25 - (millis() - loopTime));
+	loopTime = millis();
 }
 
