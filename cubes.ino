@@ -159,7 +159,11 @@ void startSnake(edge *newEdge, uint16_t hue, int speed, int mode) {
 	heads[spareSnake].state = 1;
 	heads[spareSnake].speed = speed;
 	heads[spareSnake].mode = mode;
-	heads[spareSnake].decayFactor = 0.98;
+	if (mode == MODE_SNAKE) {
+		heads[spareSnake].decayFactor = 1.0;
+	} else {
+		heads[spareSnake].decayFactor = 0.99;
+	}
 }
 
 void advanceSnake(head *thisHead) {
@@ -213,11 +217,6 @@ void advanceBurst(head *thisHead) {
 		thisHead->state = 0;
 	}
 
-	// Do we need to launch a new burst?
-	if ((millis() - lastLaunch) > 3000) {
-		lastLaunch = millis();
-		startSnake(&f, (uint16_t)random(0, 65535), 5, 1);
-	}
 }
 
 void advance() {
@@ -234,27 +233,12 @@ void advance() {
 				break;
 		}
 	}
-}
 
-void setup() {
-	Serial.begin(115200);
-	delay(3000);
-	Serial.println("Start...");
-	randomSeed(analogRead(0));
-	initLattice();
-	strip.begin();
-	strip.show();
-
-	for (int i=0; i<NUMHEADS; i++) {
-		heads[i].state = 0;
+	// Do we need to launch a new burst?
+	if ((millis() - lastLaunch) > 3000) {
+		lastLaunch = millis();
+		startSnake(&f, (uint16_t)random(0, 65535), 5, MODE_BURST);
 	}
-
-	for (int i=0; i<NUMPIXELS; i++) {
-		pixelStrip[i].hue = 0;
-		pixelStrip[i].sat = 0;
-		pixelStrip[i].val = 0;
-	}
-	loopTime = millis();
 }
 
 void decayPixels() {
@@ -295,10 +279,32 @@ void checkForEmptyArray() {
 		snakeCounter++;
 	}
 	if (snakeCounter == 0) {
-		startSnake(&f, (uint16_t)random(0, 65535), 5, 1);
+		startSnake(&f, (uint16_t)random(0, 65535), 5, MODE_BURST);
 	}
 }
 
+void setup() {
+	Serial.begin(115200);
+	delay(3000);
+	Serial.println("Start...");
+	randomSeed(analogRead(0));
+	initLattice();
+	strip.begin();
+	strip.show();
+
+	for (int i=0; i<NUMHEADS; i++) {
+		heads[i].state = 0;
+	}
+
+	for (int i=0; i<NUMPIXELS; i++) {
+		pixelStrip[i].hue = 0;
+		pixelStrip[i].sat = 0;
+		pixelStrip[i].val = 0;
+	}
+	loopTime = millis();
+
+	startSnake(&a, 10000, 5, MODE_SNAKE);
+}
 
 void loop() {
 
