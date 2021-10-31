@@ -5,7 +5,7 @@
 
 #define NUMPIXELS 238
 
-int brightness = 50;
+int brightness = 150;
 char debug[100];
 
 Adafruit_DotStar strip(NUMPIXELS, DOTSTAR_BGR);
@@ -26,7 +26,7 @@ m n   j f i   c b
     10      3
 */
 
-float decayFactor = 1.0;
+float decayFactor = 0.8;
 
 typedef struct {
 	uint16_t hue;
@@ -134,7 +134,7 @@ void initLattice() {
 head s1;
 
 void startSnake() {
-	s1.brightness = 50;
+	s1.brightness = brightness;
 	s1.sat = 255;
 	s1.hue = (uint16_t)random(0, 65535);
 	s1.positionOnEdge = 0;
@@ -217,6 +217,6 @@ void loop() {
 	renderPixels();
 
 	// Render LED strip
-	delay(15);
+	delay(75);
 }
 
