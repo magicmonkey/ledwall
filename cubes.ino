@@ -4,6 +4,8 @@
 #include <SPI.h>
 #include <WiFi101.h>
 #include "secrets.h"
+#include <ArduinoMqttClient.h>
+#include <ArduinoJson.h>
 
 #include "wiring_private.h" // pinPeripheral function
 
@@ -27,6 +29,13 @@ SPIClass SPI2(&sercom1, 12, 13, 11, SPI_PAD_0_SCK_1, SERCOM_RX_PAD_3);
 
 MM_DotStar strip(NUMPIXELS, &SPI2, DOTSTAR_BGR);
 uint32_t bg = strip.Color(0, 0, 0);
+
+WiFiClient wifiClient;
+MqttClient mqttClient(wifiClient);
+StaticJsonDocument<100> jsonBuffer;
+
+int fireworkTick = 3000;
+int snakeNum = -1;
 
 /*
     7       0
@@ -150,7 +159,7 @@ void initLattice() {
 #define NUMHEADS 100
 head heads[NUMHEADS];
 
-void startSnake(edge *newEdge, uint16_t hue, int speed, int mode, uint8_t brightness) {
+int startSnake(edge *newEdge, uint16_t hue, int speed, int mode, uint8_t brightness) {
 	int spareSnake = 0;
 	for (int i=0; i<NUMHEADS; i++) {
 		if (heads[i].state == 0) {
@@ -168,6 +177,8 @@ void startSnake(edge *newEdge, uint16_t hue, int speed, int mode, uint8_t bright
 	heads[spareSnake].speed = speed;
 	heads[spareSnake].mode = mode;
 	heads[spareSnake].decayFactor = 0.95; // Only used for burst mode, not snake
+
+	return spareSnake;
 }
 
 void advanceSnake(head *thisHead) {
@@ -234,10 +245,32 @@ void advance() {
 	}
 
 	// Do we need to launch a new burst?
-	if ((millis() - lastLaunch) > 3000) {
-		lastLaunch = millis();
-		startSnake(&f, (uint16_t)random(0, 65535), random(2, 5), MODE_BURST, START_BRIGHTNESS);
+	if (fireworkTick > 0 && ((millis() - lastLaunch) > fireworkTick)) {
+		launchFirework();
 	}
+}
+
+void enableSnake() {
+	if (snakeNum == -1) {
+		snakeNum = startSnake(&a, 10000, 2, MODE_SNAKE, START_BRIGHTNESS);
+	}
+}
+
+void disableSnake() {
+	if (snakeNum >= 0) {
+		heads[snakeNum].state = 0;
+		snakeNum = -1;
+	}
+}
+
+void launchFirework() {
+	lastLaunch = millis();
+	startSnake(&f, (uint16_t)random(0, 65535), random(3, 5), MODE_BURST, START_BRIGHTNESS);
+}
+
+void launchFirework(uint16_t hue) {
+	lastLaunch = millis();
+	startSnake(&f, hue, random(3, 5), MODE_BURST, START_BRIGHTNESS);
 }
 
 void decayPixels() {
@@ -285,6 +318,57 @@ void checkForEmptyArray() {
 }
 */
 
+void onMqttMessage(int messageSize) {
+	char msgBuffer[100];
+
+	if (messageSize > 99) {
+		Serial.println("Rejecting incoming message as it is too long");
+		return;
+	}
+
+	int charCounter = 0;
+	while (mqttClient.available()) {
+		msgBuffer[charCounter++] = (char)mqttClient.read();
+	}
+	deserializeJson(jsonBuffer, msgBuffer);
+
+	if (jsonBuffer.containsKey("action")) {
+		const char *action = (const char *)jsonBuffer["action"];
+
+		if (strcmp(action, "firework") == 0) {
+			Serial.println("Launching firework from MQTT");
+			if (jsonBuffer.containsKey("hue")) {
+				launchFirework((uint16_t)jsonBuffer["hue"]);
+			} else {
+				launchFirework();
+			}
+
+		} else if (strcmp(action, "fireworkTick") == 0) {
+			if (jsonBuffer.containsKey("time")) {
+				fireworkTick = (int)jsonBuffer["time"];
+			}
+
+		} else if (strcmp(action, "background") == 0) {
+			if (jsonBuffer.containsKey("r") && jsonBuffer.containsKey("g") && jsonBuffer.containsKey("b")) {
+				bg = strip.Color((uint8_t)jsonBuffer["r"], (uint8_t)jsonBuffer["g"], (uint8_t)jsonBuffer["b"]);
+			}
+
+		} else if (strcmp(action, "snake") == 0) {
+			if (jsonBuffer.containsKey("enabled")) {
+				if ((bool)jsonBuffer["enabled"]) {
+					enableSnake();
+				} else {
+					disableSnake();
+				}
+			}
+
+		} else {
+			Serial.print("Unknown MQTT action: ");
+			Serial.println(action);
+		}
+	}
+}
+
 void setupWifi() {
 	int status = WL_IDLE_STATUS;     // the WiFi radio's status
 
@@ -304,8 +388,16 @@ void setupWifi() {
 		delay(5000);
 	}
 
-	// you're connected now, so print out the data:
-	Serial.println("You're connected to the network");
+	Serial.println("Network connected");
+
+	if (!mqttClient.connect("10.1.0.1", 1883)) {
+		Serial.println("MQTT connection failed");
+		while(true);
+	}
+
+	mqttClient.onMessage(onMqttMessage);
+	mqttClient.subscribe("/ledwall/1/test");
+	Serial.println("MQTT connected");
 }
 
 void setup() {
@@ -336,7 +428,7 @@ void setup() {
 	}
 	loopTime = millis();
 
-	startSnake(&a, 10000, 2, MODE_SNAKE, START_BRIGHTNESS);
+	enableSnake();
 }
 
 void loop() {
@@ -351,6 +443,8 @@ void loop() {
 	//Serial.println("Render");
 	renderPixels();
 
+	mqttClient.poll();
+
 	//Serial.println("Sleep");
 	timeToSleep = 15 - (millis() - loopTime);
 	if (timeToSleep > 0) {
@@ -360,19 +454,5 @@ void loop() {
 	//Serial.println("Done");
 	//Serial.println("");
 
-/*
-	if (millis() - lastWifiPing > 5000) {
-		lastWifiPing = millis();
-		pingResult = WiFi.ping("www.google.com");
-		if (pingResult >= 0) {
-			Serial.print("SUCCESS! RTT = ");
-			Serial.print(pingResult);
-			Serial.println(" ms");
-		} else {
-			Serial.print("FAILED! Error code: ");
-			Serial.println(pingResult);
-		}
-	}
-*/
 }
 
