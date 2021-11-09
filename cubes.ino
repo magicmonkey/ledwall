@@ -13,11 +13,11 @@
 #define EDGE_SIZE 14 * 7
 #define MODE_SNAKE 0
 #define MODE_BURST 1
-#define START_BRIGHTNESS 100
 
 char wifi_ssid[] = SECRET_SSID;
 char wifi_pass[] = SECRET_PASS;
 
+uint8_t start_brightness = 100;
 char debug[100];
 int lastLaunch = 0;
 float decayFactor = 0.9;
@@ -252,7 +252,7 @@ void advance() {
 
 void enableSnake() {
 	if (snakeNum == -1) {
-		snakeNum = startSnake(&a, 10000, 2, MODE_SNAKE, START_BRIGHTNESS);
+		snakeNum = startSnake(&a, 10000, 2, MODE_SNAKE, start_brightness);
 	}
 }
 
@@ -265,12 +265,12 @@ void disableSnake() {
 
 void launchFirework() {
 	lastLaunch = millis();
-	startSnake(&f, (uint16_t)random(0, 65535), random(3, 5), MODE_BURST, START_BRIGHTNESS);
+	startSnake(&f, (uint16_t)random(0, 65535), random(3, 5), MODE_BURST, start_brightness);
 }
 
 void launchFirework(uint16_t hue) {
 	lastLaunch = millis();
-	startSnake(&f, hue, random(3, 5), MODE_BURST, START_BRIGHTNESS);
+	startSnake(&f, hue, random(3, 5), MODE_BURST, start_brightness);
 }
 
 void decayPixels() {
@@ -351,6 +351,11 @@ void onMqttMessage(int messageSize) {
 		} else if (strcmp(action, "background") == 0) {
 			if (jsonBuffer.containsKey("r") && jsonBuffer.containsKey("g") && jsonBuffer.containsKey("b")) {
 				bg = strip.Color((uint8_t)jsonBuffer["r"], (uint8_t)jsonBuffer["g"], (uint8_t)jsonBuffer["b"]);
+			}
+
+		} else if (strcmp(action, "brightness") == 0) {
+			if (jsonBuffer.containsKey("amount")) {
+				start_brightness = (uint8_t)jsonBuffer["amount"];
 			}
 
 		} else if (strcmp(action, "snake") == 0) {
