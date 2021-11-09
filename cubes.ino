@@ -303,21 +303,6 @@ void renderPixels() {
 	strip.show();
 }
 
-/*
-void checkForEmptyArray() {
-	int snakeCounter = 0;
-	for (int i=0; i<NUMHEADS; i++) {
-		if (heads[i].state == 0) {
-			continue;
-		}
-		snakeCounter++;
-	}
-	if (snakeCounter == 0) {
-		startSnake(&f, (uint16_t)random(0, 65535), 3, MODE_BURST);
-	}
-}
-*/
-
 void onMqttMessage(int messageSize) {
 	char msgBuffer[100];
 
@@ -330,13 +315,17 @@ void onMqttMessage(int messageSize) {
 	while (mqttClient.available()) {
 		msgBuffer[charCounter++] = (char)mqttClient.read();
 	}
+
+	Serial.print("Got MQTT message: ");
+	Serial.println(msgBuffer);
+
 	deserializeJson(jsonBuffer, msgBuffer);
 
 	if (jsonBuffer.containsKey("action")) {
 		const char *action = (const char *)jsonBuffer["action"];
 
 		if (strcmp(action, "firework") == 0) {
-			Serial.println("Launching firework from MQTT");
+			Serial.println("MQTT: Launching firework");
 			if (jsonBuffer.containsKey("hue")) {
 				launchFirework((uint16_t)jsonBuffer["hue"]);
 			} else {
@@ -344,21 +333,25 @@ void onMqttMessage(int messageSize) {
 			}
 
 		} else if (strcmp(action, "fireworkTick") == 0) {
+			Serial.println("MQTT: Updating firework tick");
 			if (jsonBuffer.containsKey("time")) {
 				fireworkTick = (int)jsonBuffer["time"];
 			}
 
 		} else if (strcmp(action, "background") == 0) {
+			Serial.println("MQTT: Setting background colour");
 			if (jsonBuffer.containsKey("r") && jsonBuffer.containsKey("g") && jsonBuffer.containsKey("b")) {
 				bg = strip.Color((uint8_t)jsonBuffer["r"], (uint8_t)jsonBuffer["g"], (uint8_t)jsonBuffer["b"]);
 			}
 
 		} else if (strcmp(action, "brightness") == 0) {
+			Serial.println("MQTT: Setting starting brightness");
 			if (jsonBuffer.containsKey("amount")) {
 				start_brightness = (uint8_t)jsonBuffer["amount"];
 			}
 
 		} else if (strcmp(action, "snake") == 0) {
+			Serial.println("MQTT: Changing snake");
 			if (jsonBuffer.containsKey("enabled")) {
 				if ((bool)jsonBuffer["enabled"]) {
 					enableSnake();
@@ -407,10 +400,15 @@ void setupWifi() {
 
 void setup() {
 	Serial.begin(115200);
-	delay(3000);
 	Serial.println("Start...");
 
+	delay(3000);
+
+	Serial.println("Connecting to wifi...");
+
 	setupWifi();
+
+	Serial.println("Initialising LED strip...");
 
 	randomSeed(analogRead(0));
 	initLattice();
@@ -433,31 +431,26 @@ void setup() {
 	}
 	loopTime = millis();
 
+	Serial.println("Starting snake...");
+
 	enableSnake();
 }
 
 void loop() {
 
-	//Serial.println("Decay");
 	decayPixels();
-	//Serial.println("Advance");
 	advance();
-	//checkForEmptyArray();
-	//Serial.println("Write head");
 	writeHeadPixels();
-	//Serial.println("Render");
 	renderPixels();
 
 	mqttClient.poll();
 
-	//Serial.println("Sleep");
+	// At least 15 milliseconds between frames
 	timeToSleep = 15 - (millis() - loopTime);
 	if (timeToSleep > 0) {
 		delay(timeToSleep);
 	}
 	loopTime = millis();
-	//Serial.println("Done");
-	//Serial.println("");
 
 }
 
