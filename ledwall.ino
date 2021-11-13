@@ -381,6 +381,7 @@ void sendMqttResponse(char *msg) {
 	mqttClient.beginMessage(MQTT_TOPIC_RESPONSE);
 	char output[100];
 	sprintf(output, "{\"message\": \"%s\"}", msg);
+	mqttClient.print(output);
 	mqttClient.endMessage();
 }
 
@@ -404,11 +405,17 @@ void setupWifi() {
 	}
 
 	Serial.println("Network connected");
+}
 
+void setupMqtt() {
 	if (!mqttClient.connect("10.1.0.1", 1883)) {
 		Serial.println("MQTT connection failed");
 		while(true);
 	}
+
+	mqttClient.beginWill(MQTT_TOPIC_RESPONSE, false, 0);
+	mqttClient.print("{\"message\":\"LED wall has disconnected\"}");
+	mqttClient.endWill();
 
 	mqttClient.onMessage(onMqttMessage);
 	mqttClient.subscribe(MQTT_TOPIC_REQUEST);
@@ -423,8 +430,10 @@ void setup() {
 	delay(3000);
 
 	Serial.println("Connecting to wifi...");
-
 	setupWifi();
+
+	Serial.println("Connecting to MQTT...");
+	setupMqtt();
 
 	Serial.println("Initialising LED strip...");
 
