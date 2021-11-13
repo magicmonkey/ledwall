@@ -386,7 +386,6 @@ void sendMqttResponse(char *msg) {
 }
 
 void setupWifi() {
-	int status = WL_IDLE_STATUS;     // the WiFi radio's status
 
 	WiFi.setPins(8,7,4,2);
 
@@ -396,12 +395,13 @@ void setupWifi() {
 		// don't continue:
 		while (true);
 	}
+	WiFi.begin(wifi_ssid, wifi_pass);
 
 	// attempt to connect to WiFi network:
-	while ( status != WL_CONNECTED) {
-		status = WiFi.begin(wifi_ssid, wifi_pass);
+	while ( WiFi.status() != WL_CONNECTED) {
 		// wait 5 seconds for connection:
-		delay(5000);
+		Serial.println("Waiting...");
+		delay(1000);
 	}
 
 	Serial.println("Network connected");
