@@ -14,6 +14,10 @@
 #define MODE_SNAKE 0
 #define MODE_BURST 1
 
+#define MQTT_TOPIC_PREFIX "/ledwall/1"
+#define MQTT_TOPIC_REQUEST  MQTT_TOPIC_PREFIX"/request"
+#define MQTT_TOPIC_RESPONSE MQTT_TOPIC_PREFIX"/response"
+
 char wifi_ssid[] = SECRET_SSID;
 char wifi_pass[] = SECRET_PASS;
 
@@ -361,15 +365,23 @@ void onMqttMessage(int messageSize) {
 
 		} else if (strcmp(action, "ping") == 0) {
 			Serial.println("MQTT: Ping");
-			mqttClient.beginMessage("/ledwall/1/response");
-			mqttClient.print("{\"message\": \"ack\"}");
-			mqttClient.endMessage();
+			sendMqttResponse("ack");
 
 		} else {
 			Serial.print("Unknown MQTT action: ");
 			Serial.println(action);
 		}
 	}
+}
+
+void sendMqttResponse(char *msg) {
+	if (strlen(msg) > 85) {
+		msg[85] = '\0';
+	}
+	mqttClient.beginMessage(MQTT_TOPIC_RESPONSE);
+	char output[100];
+	sprintf(output, "{\"message\": \"%s\"}", msg);
+	mqttClient.endMessage();
 }
 
 void setupWifi() {
@@ -399,11 +411,9 @@ void setupWifi() {
 	}
 
 	mqttClient.onMessage(onMqttMessage);
-	mqttClient.subscribe("/ledwall/1/request");
+	mqttClient.subscribe(MQTT_TOPIC_REQUEST);
 	Serial.println("MQTT connected");
-	mqttClient.beginMessage("/ledwall/1/response");
-	mqttClient.print("{\"message\": \"MQTT connected\"}");
-	mqttClient.endMessage();
+	sendMqttResponse("MQTT connected");
 }
 
 void setup() {
