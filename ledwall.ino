@@ -32,13 +32,13 @@ int pingResult;
 SPIClass SPI2(&sercom1, 12, 13, 11, SPI_PAD_0_SCK_1, SERCOM_RX_PAD_3);
 
 MM_DotStar strip(NUMPIXELS, &SPI2, DOTSTAR_BGR);
-uint32_t bg = strip.Color(0, 0, 0);
+uint32_t bg = strip.Color(5, 2, 5);
 
 WiFiClient wifiClient;
 MqttClient mqttClient(wifiClient);
 StaticJsonDocument<100> jsonBuffer;
 
-int fireworkTick = 3000;
+int fireworkTick = 0;
 int snakeNum = -1;
 
 /*
@@ -465,7 +465,7 @@ void setup() {
 
 	Serial.println("Starting snake...");
 
-	enableSnake();
+	//enableSnake();
 }
 
 void loop() {
