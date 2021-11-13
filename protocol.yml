@@ -1,0 +1,108 @@
+asyncapi: '2.0.0'
+info:
+  title: LED wall
+  version: 0.0.1
+  description: This controls the LED wall
+
+servers:
+  mosquitto:
+    url: 10.1.0.1:1339
+    description: Mosquitto broker
+    protocol: MQTT
+
+channels:
+  /ledwall/1/test:
+    publish:
+      operationId: ledwall
+      message:
+        oneOf:
+          - $ref: '#/components/messages/firework'
+          - $ref: '#/components/messages/fireworkTick'
+          - $ref: '#/components/messages/background'
+          - $ref: '#/components/messages/brightness'
+          - $ref: '#/components/messages/snake'
+
+components:
+  messages:
+
+    firework:
+      description: Launch a firework
+      payload:
+        type: object
+        properties:
+          action:
+            type: string
+            const: "firework"
+          hue:
+            type: integer
+            description: Numerical hue, 0-65535
+            minimum: 0
+            maximum: 65535
+        required: ["action"]
+
+    fireworkTick:
+      description: Change the time between regular fireworks
+      payload:
+        type: object
+        properties:
+          action:
+            type: string
+            const: "fireworkTick"
+          time:
+            type: integer
+            description: Time, in milliseconds
+            minimum: 0
+            maximum: 100000
+        required: ["action", "time"]
+
+    background:
+      description: Set a backgroud colour for the whole LED wall
+      payload:
+        type: object
+        properties:
+          action:
+            type: string
+            const: "background"
+          r:
+            type: integer
+            description: Amount of red
+            minimum: 0
+            maximum: 50
+          g:
+            type: integer
+            description: Amount of green
+            minimum: 0
+            maximum: 50
+          b:
+            type: integer
+            description: Amount of blue
+            minimum: 0
+            maximum: 50
+        required: ["action", "r", "g", "b"]
+
+    brightness:
+      description: Set the brightness for the next firework or snake
+      payload:
+        type: object
+        properties:
+          action:
+            type: string
+            const: "brightness"
+          amount:
+            type: integer
+            description: Brightness amount
+            minimum: 0
+            maximum: 255
+        required: ["action", "amount"]
+
+    snake:
+      description: Turn the snake on or off
+      payload:
+        type: object
+        properties:
+          action:
+            type: string
+            const: "snake"
+          enabled:
+            type: boolean
+        required: ["action", "enabled"]
