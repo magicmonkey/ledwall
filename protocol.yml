@@ -21,6 +21,8 @@ channels:
           - $ref: '#/components/messages/background'
           - $ref: '#/components/messages/brightness'
           - $ref: '#/components/messages/snake'
+          - $ref: '#/components/messages/ping'
+          - $ref: '#/components/messages/reset'
 
   /ledwall/1/response:
     subscribe:
@@ -112,6 +114,26 @@ components:
           enabled:
             type: boolean
         required: ["action", "enabled"]
+
+    ping:
+      description: Ping the chip and expect a response
+      payload:
+        type: object
+        properties:
+          action:
+            type: string
+            const: "ping"
+        required: ["action"]
+
+    reset:
+      description: Software reboot the chip
+      payload:
+        type: object
+        properties:
+          action:
+            type: string
+            const: "reset"
+        required: ["action"]
 
     response:
       description: Diagnostic and other feedback from the wall
