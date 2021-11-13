@@ -367,6 +367,11 @@ void onMqttMessage(int messageSize) {
 			Serial.println("MQTT: Ping");
 			sendMqttResponse("ack");
 
+		} else if (strcmp(action, "reset") == 0) {
+			Serial.println("MQTT: Resetting arduino...");
+			sendMqttResponse("reset");
+			NVIC_SystemReset();
+
 		} else {
 			Serial.print("Unknown MQTT action: ");
 			Serial.println(action);
