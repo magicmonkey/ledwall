@@ -11,7 +11,7 @@ servers:
     protocol: MQTT
 
 channels:
-  /ledwall/1/test:
+  /ledwall/1/request:
     publish:
       operationId: ledwall
       message:
@@ -21,6 +21,12 @@ channels:
           - $ref: '#/components/messages/background'
           - $ref: '#/components/messages/brightness'
           - $ref: '#/components/messages/snake'
+
+  /ledwall/1/response:
+    subscribe:
+      operationId: ledwallack
+      message:
+        $ref: "#/components/messages/response"
 
 components:
   messages:
@@ -106,3 +112,12 @@ components:
           enabled:
             type: boolean
         required: ["action", "enabled"]
+
+    response:
+      description: Diagnostic and other feedback from the wall
+      payload:
+        type: object
+        properties:
+          message:
+            type: string
+        required: ["message"]

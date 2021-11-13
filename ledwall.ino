@@ -360,6 +360,12 @@ void onMqttMessage(int messageSize) {
 				}
 			}
 
+		} else if (strcmp(action, "ping") == 0) {
+			Serial.println("MQTT: Ping");
+			mqttClient.beginMessage("/ledwall/1/response");
+			mqttClient.print("{\"message\": \"ack\"}");
+			mqttClient.endMessage();
+
 		} else {
 			Serial.print("Unknown MQTT action: ");
 			Serial.println(action);
@@ -394,8 +400,11 @@ void setupWifi() {
 	}
 
 	mqttClient.onMessage(onMqttMessage);
-	mqttClient.subscribe("/ledwall/1/test");
+	mqttClient.subscribe("/ledwall/1/request");
 	Serial.println("MQTT connected");
+	mqttClient.beginMessage("/ledwall/1/response");
+	mqttClient.print("{\"message\": \"MQTT connected\"}");
+	mqttClient.endMessage();
 }
 
 void setup() {
