@@ -157,7 +157,7 @@ void initLattice() {
 }
 
 #define NUMHEADS 100
-head heads[NUMHEADS];
+head heads[NUMHEADS]; // Pre-allocate a given number of slots
 
 int startSnake(edge *newEdge, uint16_t hue, int speed, int mode, uint8_t brightness) {
 	int spareSnake = 0;
@@ -263,14 +263,13 @@ void disableSnake() {
 	}
 }
 
-void launchFirework() {
-	lastLaunch = millis();
-	startSnake(&f, (uint16_t)random(0, 65535), random(3, 5), MODE_BURST, start_brightness);
-}
-
 void launchFirework(uint16_t hue) {
 	lastLaunch = millis();
 	startSnake(&f, hue, random(3, 5), MODE_BURST, start_brightness);
+}
+
+void launchFirework() {
+	launchFirework((uint16_t)random(0, 65535));
 }
 
 void decayPixels() {
