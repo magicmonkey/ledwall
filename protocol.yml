@@ -64,7 +64,7 @@ components:
         required: ["action", "time"]
 
     background:
-      description: Set a backgroud colour for the whole LED wall
+      description: Set a background colour for the whole LED wall
       payload:
         type: object
         properties:
