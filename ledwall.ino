@@ -380,6 +380,10 @@ void onMqttMessage(int messageSize) {
 }
 
 void sendMqttResponse(char *msg) {
+	if (!mqttClient.connected()) {
+		Serial.println("Not sending to MQTT as not connected to MQTT");
+		return;
+	}
 	if (strlen(msg) > 85) {
 		msg[85] = '\0';
 	}
@@ -415,7 +419,7 @@ void setupWifi() {
 void setupMqtt() {
 	if (!mqttClient.connect("10.1.0.1", 1883)) {
 		Serial.println("MQTT connection failed");
-		while(true);
+		return;
 	}
 
 	mqttClient.beginWill(MQTT_TOPIC_RESPONSE, false, 0);
@@ -426,6 +430,12 @@ void setupMqtt() {
 	mqttClient.subscribe(MQTT_TOPIC_REQUEST);
 	Serial.println("MQTT connected");
 	sendMqttResponse("MQTT connected");
+}
+
+void checkMqttIsConnected() {
+	if (!mqttClient.connected()) {
+		setupMqtt();
+	}
 }
 
 void setup() {
@@ -475,7 +485,9 @@ void loop() {
 	writeHeadPixels();
 	renderPixels();
 
-	mqttClient.poll();
+	if (mqttClient.connected()) {
+		mqttClient.poll();
+	}
 
 	// At least 15 milliseconds between frames
 	timeToSleep = 15 - (millis() - loopTime);
