@@ -397,7 +397,6 @@ void sendMqttResponse(char *msg) {
 
 void setupWifi() {
 
-	WiFi.setPins(8,7,4,2);
 
 	// check for the presence of the shield:
 	if (WiFi.status() == WL_NO_SHIELD) {
@@ -411,7 +410,7 @@ void setupWifi() {
 }
 
 void checkWifiIsConnected() {
-	if (!WiFi.status() != WL_CONNECTED) {
+	if (WiFi.status() != WL_CONNECTED) {
 		wifiConnected = false;
 		setupWifi();
 	} else {
@@ -451,6 +450,7 @@ void setup() {
 
 	delay(3000);
 
+	WiFi.setPins(8,7,4,2);
 	wifiConnected = false;
 
 	Serial.println("Initialising LED strip...");
@@ -476,8 +476,7 @@ void setup() {
 	}
 	loopTime = millis();
 
-	Serial.println("Starting snake...");
-
+	//Serial.println("Starting snake...");
 	//enableSnake();
 }
 
