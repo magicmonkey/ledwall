@@ -25,7 +25,8 @@ uint8_t start_brightness = 100;
 char debug[100];
 int lastLaunch = 0;
 float decayFactor = 0.9;
-long loopTime, lastWifiPing, timeToSleep;
+long loopTime, lastConnectionCheck, timeToSleep;
+bool wifiConnected = false;
 
 int pingResult;
 
@@ -401,22 +402,28 @@ void setupWifi() {
 	// check for the presence of the shield:
 	if (WiFi.status() == WL_NO_SHIELD) {
 		Serial.println("WiFi shield not present");
-		// don't continue:
-		while (true);
+		return;
 	}
+
 	WiFi.begin(wifi_ssid, wifi_pass);
 
-	// attempt to connect to WiFi network:
-	while ( WiFi.status() != WL_CONNECTED) {
-		// wait 5 seconds for connection:
-		Serial.println("Waiting...");
-		delay(1000);
-	}
+	Serial.println("Network begun");
+}
 
-	Serial.println("Network connected");
+void checkWifiIsConnected() {
+	if (!WiFi.status() != WL_CONNECTED) {
+		wifiConnected = false;
+		setupWifi();
+	} else {
+		wifiConnected = true;
+	}
 }
 
 void setupMqtt() {
+	if (!wifiConnected) {
+		Serial.println("Cannot connect to MQTT as not connected to WiFi");
+		return;
+	}
 	if (!mqttClient.connect("10.1.0.1", 1883)) {
 		Serial.println("MQTT connection failed");
 		return;
@@ -444,11 +451,7 @@ void setup() {
 
 	delay(3000);
 
-	Serial.println("Connecting to wifi...");
-	setupWifi();
-
-	Serial.println("Connecting to MQTT...");
-	setupMqtt();
+	wifiConnected = false;
 
 	Serial.println("Initialising LED strip...");
 
@@ -495,6 +498,13 @@ void loop() {
 		delay(timeToSleep);
 	}
 	loopTime = millis();
+
+	// At least 3 seconds between WIFI and MQTT connection checks
+	if (millis() - lastConnectionCheck > 3 * 1000) {
+		checkWifiIsConnected();
+		checkMqttIsConnected();
+		lastConnectionCheck = millis();
+	}
 
 }
 
