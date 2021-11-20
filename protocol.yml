@@ -23,6 +23,7 @@ channels:
           - $ref: '#/components/messages/clearpixels'
           - $ref: '#/components/messages/brightness'
           - $ref: '#/components/messages/snake'
+          - $ref: '#/components/messages/pulse'
           - $ref: '#/components/messages/ping'
           - $ref: '#/components/messages/reset'
 
@@ -156,6 +157,26 @@ components:
           enabled:
             type: boolean
         required: ["action", "enabled"]
+
+    pulse:
+      description: Send a "pulse" out of all edges from a given node
+      payload:
+        type: object
+        properties:
+          action:
+            type: string
+            const: "pulse"
+          hue:
+            type: integer
+            description: Numerical hue, 0-65535
+            minimum: 0
+            maximum: 65535
+          node:
+            type: integer
+            description: Node number
+            minimum: 0
+            maximum: 11
+        required: ["action", "hue", "node"]
 
     ping:
       description: Ping the chip and expect a response

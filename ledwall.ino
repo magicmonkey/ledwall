@@ -13,6 +13,7 @@
 #define EDGE_SIZE 14 * 7
 #define MODE_SNAKE 0
 #define MODE_BURST 1
+#define MODE_PULSE 2
 
 #define MQTT_TOPIC_PREFIX "/ledwall/1"
 #define MQTT_TOPIC_REQUEST  MQTT_TOPIC_PREFIX"/request"
@@ -87,6 +88,7 @@ typedef struct {
 	int speed; // 0-7
 	int mode;  // 0 = Snake, 1 = Burst
 	float decayFactor;
+	int age;
 } head;
 
 uint32_t bgSolid = strip.Color(5, 2, 5);
@@ -242,6 +244,33 @@ void advanceBurst(head *thisHead) {
 
 }
 
+void advancePulse(head *thisHead) {
+
+	thisHead->age++;
+
+	if (thisHead->age % 2 == 0) {
+		thisHead->brightness *= decayFactor;
+	}
+
+	if (thisHead->age % 14 == 0) {
+		thisHead->speed--;
+	}
+
+	if (thisHead->brightness < 2) {
+		thisHead->state = 0;
+	}
+	if (thisHead->speed <= 0) {
+		thisHead->state = 0;
+	}
+
+	thisHead->positionOnEdge += thisHead->speed;
+
+	if (thisHead->positionOnEdge >= EDGE_SIZE) {
+		thisHead->state = 0;
+	}
+
+}
+
 void advance() {
 	for (int i=0; i<NUMHEADS; i++) {
 		if (heads[i].state == 0) {
@@ -253,6 +282,9 @@ void advance() {
 				break;
 			case MODE_BURST:
 				advanceBurst(&heads[i]);
+				break;
+			case MODE_PULSE:
+				advancePulse(&heads[i]);
 				break;
 		}
 	}
@@ -364,16 +396,17 @@ void onMqttMessage(int messageSize) {
 		} else if (strcmp(action, "background") == 0) {
 			Serial.println("MQTT: Setting background colour");
 			if (jsonBuffer.containsKey("r") && jsonBuffer.containsKey("g") && jsonBuffer.containsKey("b")) {
-				Serial.println("MQTT: Setting background colour to a solid");
 				bgSolid = strip.Color((uint8_t)jsonBuffer["r"], (uint8_t)jsonBuffer["g"], (uint8_t)jsonBuffer["b"]);
 			}
 
 		} else if (strcmp(action, "pixel") == 0) {
-			Serial.println("MQTT: Setting background colour to individual pixel");
-			uint16_t pixelNum = (uint16_t)jsonBuffer["num"];
-			bgPixels[pixelNum].red   = (uint8_t)jsonBuffer["r"];
-			bgPixels[pixelNum].green = (uint8_t)jsonBuffer["g"];
-			bgPixels[pixelNum].blue  = (uint8_t)jsonBuffer["b"];
+			Serial.println("MQTT: Setting individual pixel");
+			if (jsonBuffer.containsKey("r") && jsonBuffer.containsKey("g") && jsonBuffer.containsKey("b") && jsonBuffer.containsKey("num")) {
+				uint16_t pixelNum = (uint16_t)jsonBuffer["num"];
+				bgPixels[pixelNum].red   = (uint8_t)jsonBuffer["r"];
+				bgPixels[pixelNum].green = (uint8_t)jsonBuffer["g"];
+				bgPixels[pixelNum].blue  = (uint8_t)jsonBuffer["b"];
+			}
 
 		} else if (strcmp(action, "clearpixels") == 0) {
 			Serial.println("MQTT: Clearing individual background pixels");
@@ -396,6 +429,73 @@ void onMqttMessage(int messageSize) {
 					enableSnake();
 				} else {
 					disableSnake();
+				}
+			}
+
+		} else if (strcmp(action, "pulse") == 0) {
+			Serial.println("MQTT: Pulsing");
+			if (jsonBuffer.containsKey("node")) {
+				uint8_t node = (uint8_t)jsonBuffer["node"];
+				uint16_t hue = (uint16_t)jsonBuffer["hue"];
+				switch (node) {
+					case 0:
+						startSnake(&G, hue, 3, MODE_PULSE, start_brightness);
+						startSnake(&h, hue, 3, MODE_PULSE, start_brightness);
+						break;
+					case 1:
+						startSnake(&H, hue, 3, MODE_PULSE, start_brightness);
+						startSnake(&c, hue, 3, MODE_PULSE, start_brightness);
+						startSnake(&B, hue, 3, MODE_PULSE, start_brightness);
+						break;
+					case 2:
+						startSnake(&b, hue, 3, MODE_PULSE, start_brightness);
+						startSnake(&A, hue, 3, MODE_PULSE, start_brightness);
+						break;
+					case 3:
+						startSnake(&a, hue, 3, MODE_PULSE, start_brightness);
+						startSnake(&D, hue, 3, MODE_PULSE, start_brightness);
+						startSnake(&e, hue, 3, MODE_PULSE, start_brightness);
+						break;
+					case 4:
+						startSnake(&f, hue, 3, MODE_PULSE, start_brightness);
+						startSnake(&E, hue, 3, MODE_PULSE, start_brightness);
+						startSnake(&O, hue, 3, MODE_PULSE, start_brightness);
+						break;
+					case 5:
+						startSnake(&p, hue, 3, MODE_PULSE, start_brightness);
+						startSnake(&g, hue, 3, MODE_PULSE, start_brightness);
+						startSnake(&I, hue, 3, MODE_PULSE, start_brightness);
+						startSnake(&F, hue, 3, MODE_PULSE, start_brightness);
+						startSnake(&j, hue, 3, MODE_PULSE, start_brightness);
+						break;
+					case 6:
+						startSnake(&i, hue, 3, MODE_PULSE, start_brightness);
+						startSnake(&C, hue, 3, MODE_PULSE, start_brightness);
+						startSnake(&d, hue, 3, MODE_PULSE, start_brightness);
+						break;
+					case 7:
+						startSnake(&q, hue, 3, MODE_PULSE, start_brightness);
+						startSnake(&P, hue, 3, MODE_PULSE, start_brightness);
+						break;
+					case 8:
+						startSnake(&Q, hue, 3, MODE_PULSE, start_brightness);
+						startSnake(&n, hue, 3, MODE_PULSE, start_brightness);
+						startSnake(&M, hue, 3, MODE_PULSE, start_brightness);
+						break;
+					case 9:
+						startSnake(&m, hue, 3, MODE_PULSE, start_brightness);
+						startSnake(&L, hue, 3, MODE_PULSE, start_brightness);
+						break;
+					case 10:
+						startSnake(&l, hue, 3, MODE_PULSE, start_brightness);
+						startSnake(&K, hue, 3, MODE_PULSE, start_brightness);
+						startSnake(&o, hue, 3, MODE_PULSE, start_brightness);
+						break;
+					case 11:
+						startSnake(&k, hue, 3, MODE_PULSE, start_brightness);
+						startSnake(&N, hue, 3, MODE_PULSE, start_brightness);
+						startSnake(&J, hue, 3, MODE_PULSE, start_brightness);
+						break;
 				}
 			}
 
