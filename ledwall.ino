@@ -33,7 +33,6 @@ int pingResult;
 SPIClass SPI2(&sercom1, 12, 13, 11, SPI_PAD_0_SCK_1, SERCOM_RX_PAD_3);
 
 MM_DotStar strip(NUMPIXELS, &SPI2, DOTSTAR_BGR);
-uint32_t bg = strip.Color(5, 2, 5);
 
 WiFiClient wifiClient;
 MqttClient mqttClient(wifiClient);
@@ -62,11 +61,18 @@ typedef struct {
 	uint16_t hue;
 	uint8_t sat;
 	uint8_t val;
-} pixel;
-pixel pixelStrip[NUMPIXELS];
+} pixelHSV;
+pixelHSV pixelStrip[NUMPIXELS];
+
+typedef struct {
+	uint8_t red;
+	uint8_t green;
+	uint8_t blue;
+} pixelRGB;
+pixelRGB bgPixels[NUMPIXELS];
 
 typedef struct edge {
-	pixel *pixels; // Pointer to the first of 14 pixels in the pixelStrip array
+	pixelHSV *pixels; // Pointer to the first of 14 pixels in the pixelStrip array
 	struct edge *next[5];
 	int direction; // 1 or -1 for if the edge goes forwards or backwards along the pixelStrip array
 } edge;
@@ -82,6 +88,8 @@ typedef struct {
 	int mode;  // 0 = Snake, 1 = Burst
 	float decayFactor;
 } head;
+
+uint32_t bgSolid = strip.Color(5, 2, 5);
 
 edge a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q;
 edge A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q;
@@ -298,7 +306,18 @@ void writeHeadPixels() {
 
 void renderPixels() {
 	strip.clear();
-	strip.fill(bg, 0, NUMPIXELS);
+
+	// Background - solid fill
+	strip.fill(bgSolid, 0, NUMPIXELS);
+
+	// Background - individual pixels
+	for (int i=0; i<NUMPIXELS; i++) {
+		if (bgPixels[i].red > 0 || bgPixels[i].green > 0 || bgPixels[i].blue > 0) {
+			strip.setPixelColor(i, bgPixels[i].red, bgPixels[i].green, bgPixels[i].blue);
+		}
+	}
+
+	// Foreground - pixels from the snakes or heads or whatever
 	for (int i=0; i<NUMPIXELS; i++) {
 		if (pixelStrip[i].val > 0) {
 			strip.setPixelColor(i, strip.ColorHSV(pixelStrip[i].hue, pixelStrip[i].sat, pixelStrip[i].val));
@@ -345,7 +364,23 @@ void onMqttMessage(int messageSize) {
 		} else if (strcmp(action, "background") == 0) {
 			Serial.println("MQTT: Setting background colour");
 			if (jsonBuffer.containsKey("r") && jsonBuffer.containsKey("g") && jsonBuffer.containsKey("b")) {
-				bg = strip.Color((uint8_t)jsonBuffer["r"], (uint8_t)jsonBuffer["g"], (uint8_t)jsonBuffer["b"]);
+				Serial.println("MQTT: Setting background colour to a solid");
+				bgSolid = strip.Color((uint8_t)jsonBuffer["r"], (uint8_t)jsonBuffer["g"], (uint8_t)jsonBuffer["b"]);
+			}
+
+		} else if (strcmp(action, "pixel") == 0) {
+			Serial.println("MQTT: Setting background colour to individual pixel");
+			uint16_t pixelNum = (uint16_t)jsonBuffer["num"];
+			bgPixels[pixelNum].red   = (uint8_t)jsonBuffer["r"];
+			bgPixels[pixelNum].green = (uint8_t)jsonBuffer["g"];
+			bgPixels[pixelNum].blue  = (uint8_t)jsonBuffer["b"];
+
+		} else if (strcmp(action, "clearpixels") == 0) {
+			Serial.println("MQTT: Clearing individual background pixels");
+			for (int i=0; i<NUMPIXELS; i++) {
+				bgPixels[i].red   = 0;
+				bgPixels[i].green = 0;
+				bgPixels[i].blue  = 0;
 			}
 
 		} else if (strcmp(action, "brightness") == 0) {
@@ -473,6 +508,9 @@ void setup() {
 		pixelStrip[i].hue = 0;
 		pixelStrip[i].sat = 0;
 		pixelStrip[i].val = 0;
+		bgPixels[i].red   = 0;
+		bgPixels[i].green = 0;
+		bgPixels[i].blue  = 0;
 	}
 	loopTime = millis();
 

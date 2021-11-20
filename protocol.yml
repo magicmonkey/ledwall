@@ -19,6 +19,8 @@ channels:
           - $ref: '#/components/messages/firework'
           - $ref: '#/components/messages/fireworkTick'
           - $ref: '#/components/messages/background'
+          - $ref: '#/components/messages/pixel'
+          - $ref: '#/components/messages/clearpixels'
           - $ref: '#/components/messages/brightness'
           - $ref: '#/components/messages/snake'
           - $ref: '#/components/messages/ping'
@@ -87,6 +89,46 @@ components:
             minimum: 0
             maximum: 50
         required: ["action", "r", "g", "b"]
+
+    pixel:
+      description: Set an individual pixel to a given colour
+      payload:
+        type: object
+        properties:
+          action:
+            type: string
+            const: "pixel"
+          num:
+            type: integer
+            description: Pixel number
+            minimum: 0
+            maximum: 237
+          r:
+            type: integer
+            description: Amount of red
+            minimum: 0
+            maximum: 50
+          g:
+            type: integer
+            description: Amount of green
+            minimum: 0
+            maximum: 50
+          b:
+            type: integer
+            description: Amount of blue
+            minimum: 0
+            maximum: 50
+        required: ["action", "num", "r", "g", "b"]
+
+    clearpixels:
+      description: Clear all of the individually-set pixels
+      payload:
+        type: object
+        properties:
+          action:
+            type: string
+            const: "clearpixels"
+        required: ["action"]
 
     brightness:
       description: Set the brightness for the next firework or snake
